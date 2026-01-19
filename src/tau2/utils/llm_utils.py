@@ -231,11 +231,17 @@ def generate(
     )
     content = response.message.content
     tool_calls = response.message.tool_calls or []
+    def safe_json_loads(value):
+        parsed = json.loads(value)
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+        return parsed
+
     tool_calls = [
         ToolCall(
             id=tool_call.id,
             name=tool_call.function.name,
-            arguments=json.loads(tool_call.function.arguments),
+            arguments=safe_json_loads(tool_call.function.arguments),
         )
         for tool_call in tool_calls
     ]
