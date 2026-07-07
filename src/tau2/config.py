@@ -1,5 +1,18 @@
 import os
 
+
+def _env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None or value == "":
+        return default
+    return float(value)
+
+
+def _add_env_arg(args: dict, env_name: str, arg_name: str) -> None:
+    value = os.getenv(env_name)
+    if value:
+        args[arg_name] = value
+
 # =============================================================================
 # SIMULATION DEFAULTS (overridable via CLI)
 # =============================================================================
@@ -24,10 +37,24 @@ DEFAULT_LLM_ARGS_AGENT = {"temperature": DEFAULT_LLM_TEMPERATURE_AGENT}
 DEFAULT_LLM_ARGS_USER = {"temperature": DEFAULT_LLM_TEMPERATURE_USER}
 
 DEFAULT_LLM_NL_ASSERTIONS = os.getenv(
-    "TAU2_NL_ASSERTIONS_MODEL", "chatgpt-5.4-mini"
+    "TAU2_NL_ASSERTIONS_MODEL", "gpt-5.4-mini"
 )
-DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE = 0.0
+DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE = _env_float(
+    "TAU2_NL_ASSERTIONS_TEMPERATURE", 0.0
+)
 DEFAULT_LLM_NL_ASSERTIONS_ARGS = {"temperature": DEFAULT_LLM_NL_ASSERTIONS_TEMPERATURE}
+_add_env_arg(
+    DEFAULT_LLM_NL_ASSERTIONS_ARGS, "TAU2_NL_ASSERTIONS_API_BASE", "api_base"
+)
+_add_env_arg(DEFAULT_LLM_NL_ASSERTIONS_ARGS, "TAU2_NL_ASSERTIONS_API_KEY", "api_key")
+_nl_assertions_reasoning_effort = os.getenv("TAU2_NL_ASSERTIONS_REASONING_EFFORT")
+if _nl_assertions_reasoning_effort and _nl_assertions_reasoning_effort.lower() not in {
+    "default",
+    "none",
+}:
+    DEFAULT_LLM_NL_ASSERTIONS_ARGS["reasoning_effort"] = (
+        _nl_assertions_reasoning_effort
+    )
 
 DEFAULT_LLM_ENV_INTERFACE = "gpt-4.1-2025-04-14"
 DEFAULT_LLM_ENV_INTERFACE_TEMPERATURE = 0.0
