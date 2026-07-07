@@ -210,6 +210,12 @@ class ParticipantMessageBase(BaseModel):
         description="Whether this message represents audio (base64-encoded bytes) instead of text.",
     )
 
+    # --- Reasoning ---
+    reasoning_content: Optional[str] = Field(
+        description="The reasoning/thinking content produced before the response.",
+        default=None,
+    )
+
     # --- Metadata ---
     turn_idx: Optional[int] = None
     timestamp: Optional[str] = Field(default_factory=get_now)

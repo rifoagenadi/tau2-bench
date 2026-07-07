@@ -59,6 +59,11 @@ llm_log_dir: ContextVar[Optional[Path]] = ContextVar("llm_log_dir", default=None
 # Context variable to store the LLM logging mode ("all" or "latest")
 llm_log_mode: ContextVar[str] = ContextVar("llm_log_mode", default="latest")
 
+# Context variable to control whether assistant reasoning is replayed in history
+preserve_thinking: ContextVar[Optional[bool]] = ContextVar(
+    "preserve_thinking", default=None
+)
+
 # litellm._turn_on_debug()
 
 logging.getLogger("LiteLLM").setLevel(logging.WARNING)
@@ -141,6 +146,32 @@ def get_response_usage(response: ModelResponse) -> Optional[dict]:
     }
 
 
+def _parse_bool(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise ValueError(
+        f"Invalid boolean value {value!r}. Expected true/false, yes/no, on/off, or 1/0."
+    )
+
+
+def preserve_thinking_enabled() -> bool:
+    configured = preserve_thinking.get()
+    if configured is not None:
+        return configured
+    for env_name in ("TAU2_PRESERVE_THINKING", "PRESERVE_THINKING"):
+        raw_value = os.environ.get(env_name)
+        if raw_value is not None:
+            return _parse_bool(raw_value)
+    return False
+
+
+def set_preserve_thinking(enabled: Optional[bool]) -> None:
+    preserve_thinking.set(enabled)
+
+
 def to_tau2_messages(
     messages: list[dict], ignore_roles: set[str] = set()
 ) -> list[Message]:
@@ -188,13 +219,14 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
                     }
                     for tc in message.tool_calls
                 ]
-            litellm_messages.append(
-                {
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": tool_calls,
-                }
-            )
+            assistant_msg: dict = {
+                "role": "assistant",
+                "content": message.content,
+                "tool_calls": tool_calls,
+            }
+            if preserve_thinking_enabled() and message.reasoning_content:
+                assistant_msg["reasoning_content"] = message.reasoning_content
+            litellm_messages.append(assistant_msg)
         elif isinstance(message, ToolMessage):
             litellm_messages.append(
                 {
@@ -432,6 +464,11 @@ def generate(
         "The response should be an assistant message"
     )
     content = response_choice.message.content
+    reasoning_content = (
+        getattr(response_choice.message, "reasoning_content", None)
+        if preserve_thinking_enabled()
+        else None
+    )
     raw_tool_calls = response_choice.message.tool_calls or []
     tool_calls = [
         ToolCall(
@@ -446,6 +483,7 @@ def generate(
     message = AssistantMessage(
         role="assistant",
         content=content,
+        reasoning_content=reasoning_content,
         tool_calls=tool_calls,
         cost=cost,
         usage=usage,

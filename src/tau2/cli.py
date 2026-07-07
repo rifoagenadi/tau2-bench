@@ -47,6 +47,19 @@ def get_all_retrieval_config_names():
     return get_all_variant_names()
 
 
+def optional_bool(value: bool | str) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(
+        "must be a boolean: true/false, yes/no, on/off, or 1/0"
+    )
+
+
 def add_run_args(parser):
     """Add run arguments to a parser."""
     domains = get_options().domains
@@ -199,6 +212,28 @@ def add_run_args(parser):
         "'all' saves every LLM call (can generate many files), "
         "'latest' keeps only the most recent call of each type (saves space). "
         f"Default is '{DEFAULT_LLM_LOG_MODE}'. Ignored if --verbose-logs is not specified.",
+    )
+    parser.add_argument(
+        "--preserve-thinking",
+        "--preserve_thinking",
+        dest="preserve_thinking",
+        nargs="?",
+        const=True,
+        default=None,
+        type=optional_bool,
+        metavar="BOOL",
+        help=(
+            "Replay assistant reasoning_content in later LLM calls. "
+            "With no BOOL, enables preserved thinking. Defaults to "
+            "TAU2_PRESERVE_THINKING/PRESERVE_THINKING or disabled."
+        ),
+    )
+    parser.add_argument(
+        "--no-preserve-thinking",
+        "--no-preserve_thinking",
+        dest="preserve_thinking",
+        action="store_false",
+        help="Disable reasoning_content replay even if an environment default is set.",
     )
     parser.add_argument(
         "--max-retries",
@@ -629,9 +664,10 @@ def main():
             )
 
         # Set global LLM log mode (used by verbose logging)
-        from tau2.utils.llm_utils import set_llm_log_mode
+        from tau2.utils.llm_utils import set_llm_log_mode, set_preserve_thinking
 
         set_llm_log_mode(args.llm_log_mode)
+        set_preserve_thinking(args.preserve_thinking)
 
         # Shared config kwargs
         shared_kwargs = dict(

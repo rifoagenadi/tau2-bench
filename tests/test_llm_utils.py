@@ -8,7 +8,18 @@ from tau2.data_model.message import (
     UserMessage,
 )
 from tau2.environment.tool import Tool, as_tool
-from tau2.utils.llm_utils import generate
+from tau2.utils.llm_utils import (
+    generate,
+    set_preserve_thinking,
+    to_litellm_messages,
+)
+
+
+@pytest.fixture(autouse=True)
+def reset_preserve_thinking():
+    set_preserve_thinking(None)
+    yield
+    set_preserve_thinking(None)
 
 
 @pytest.fixture
@@ -49,6 +60,46 @@ def tool_call_messages() -> list[Message]:
         ),
     ]
     return messages
+
+
+def test_to_litellm_messages_omits_reasoning_content_by_default(monkeypatch):
+    monkeypatch.delenv("TAU2_PRESERVE_THINKING", raising=False)
+    monkeypatch.delenv("PRESERVE_THINKING", raising=False)
+    message = AssistantMessage(
+        role="assistant",
+        content="Done",
+        reasoning_content="Internal reasoning",
+    )
+
+    [litellm_message] = to_litellm_messages([message])
+
+    assert "reasoning_content" not in litellm_message
+
+
+def test_to_litellm_messages_includes_reasoning_content_when_enabled():
+    set_preserve_thinking(True)
+    message = AssistantMessage(
+        role="assistant",
+        content="Done",
+        reasoning_content="Internal reasoning",
+    )
+
+    [litellm_message] = to_litellm_messages([message])
+
+    assert litellm_message["reasoning_content"] == "Internal reasoning"
+
+
+def test_to_litellm_messages_preserve_thinking_env(monkeypatch):
+    monkeypatch.setenv("TAU2_PRESERVE_THINKING", "true")
+    message = AssistantMessage(
+        role="assistant",
+        content="Done",
+        reasoning_content="Internal reasoning",
+    )
+
+    [litellm_message] = to_litellm_messages([message])
+
+    assert litellm_message["reasoning_content"] == "Internal reasoning"
 
 
 def test_generate_no_tool_call(model: str, messages: list[Message]):
