@@ -47,7 +47,7 @@ class Role(str, Enum):
 DEFAULT_FIRST_AGENT_MESSAGE = AssistantMessage(
     role="assistant",
     content="Hi! How can I help you today?",
-    reasoning_content="Scripted benchmark greeting.",
+    reasoning_content="",
     cost=0.0,
 )
 

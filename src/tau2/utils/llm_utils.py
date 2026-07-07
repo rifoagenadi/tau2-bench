@@ -224,7 +224,7 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
                 "content": message.content,
                 "tool_calls": tool_calls,
             }
-            if preserve_thinking_enabled() and message.reasoning_content:
+            if preserve_thinking_enabled() and message.reasoning_content is not None:
                 assistant_msg["reasoning_content"] = message.reasoning_content
             litellm_messages.append(assistant_msg)
         elif isinstance(message, ToolMessage):
