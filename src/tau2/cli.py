@@ -8,6 +8,7 @@ from tau2.config import (
     DEFAULT_INTEGRATION_DURATION_SECONDS,
     DEFAULT_INTERRUPTION_CHECK_INTERVAL_SECONDS,
     DEFAULT_LLM_AGENT,
+    DEFAULT_LLM_EVAL_USER_SIMULATOR,
     DEFAULT_LLM_LOG_MODE,
     DEFAULT_LLM_TEMPERATURE_AGENT,
     DEFAULT_LLM_TEMPERATURE_USER,
@@ -238,18 +239,16 @@ def add_run_args(parser):
     parser.add_argument(
         "--audio-native-provider",
         type=str,
-        choices=["openai", "gemini", "xai"],
+        choices=["openai", "gemini", "xai", "livekit"],
         default=DEFAULT_AUDIO_NATIVE_PROVIDER,
-        help=f"Audio native API provider. 'openai' uses OpenAI Realtime API, "
-        f"'gemini' uses Google Gemini Live API, 'xai' uses xAI Grok Voice Agent API. "
-        f"Default is '{DEFAULT_AUDIO_NATIVE_PROVIDER}'.",
+        help=f"Audio native API provider. Default is '{DEFAULT_AUDIO_NATIVE_PROVIDER}'.",
     )
     parser.add_argument(
         "--cascaded-config",
         type=str,
         default=None,
         help="Cascaded config preset name for livekit provider. "
-        "Available presets: 'default', 'openai-thinking', 'openai-thinking-high'. "
+        "Available presets: 'default', 'openai-thinking'. "
         "See tau2.voice.audio_native.livekit.config for details.",
     )
     parser.add_argument(
@@ -257,6 +256,13 @@ def add_run_args(parser):
         type=str,
         default=None,
         help="Audio native model to use. If not specified, uses the default model for the selected provider.",
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        type=str,
+        choices=["minimal", "low", "medium", "high", "xhigh"],
+        default=None,
+        help="Reasoning effort for thinking models. Only applies to providers that support it (e.g. OpenAI).",
     )
     parser.add_argument(
         "--tick-duration",
@@ -372,10 +378,10 @@ def add_run_args(parser):
         help=(
             "Knowledge retrieval config name (banking_knowledge domain). "
             "Offline: no_knowledge, full_kb, golden_retrieval, bm25, bm25_grep, grep_only. "
-            "Requires OPENAI_API_KEY: openai_embeddings*. "
-            "Requires OPENROUTER_API_KEY: qwen_embeddings*. "
-            "Requires sandbox-runtime: terminal_use*. "
-            "Default: bm25."
+            "Requires OPENAI_API_KEY: openai_embeddings*, alltools. "
+            "Requires OPENROUTER_API_KEY: qwen_embeddings*, alltools-qwen. "
+            "Requires sandbox-runtime: terminal_use*, alltools, alltools-qwen. "
+            "Default for banking_knowledge: alltools (BM25 + dense + shell)."
         ),
     )
     parser.add_argument(
@@ -406,6 +412,12 @@ def add_run_args(parser):
         choices=["full", "user"],
         default="full",
         help="Review mode when --auto-review is enabled: 'full' (agent+user errors, default) or 'user' (user simulator only).",
+    )
+    parser.add_argument(
+        "--review-model",
+        type=str,
+        default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+        help=f"LLM model to use for review calls. Default is {DEFAULT_LLM_EVAL_USER_SIMULATOR}.",
     )
     parser.add_argument(
         "--hallucination-retries",
@@ -597,6 +609,7 @@ def main():
                 provider=args.audio_native_provider,
                 model=audio_native_model,
                 cascaded_config_name=args.cascaded_config,
+                reasoning_effort=args.reasoning_effort,
                 # Timing
                 tick_duration_seconds=args.tick_duration,
                 max_steps_seconds=args.max_steps_seconds,
@@ -642,6 +655,7 @@ def main():
             auto_resume=args.auto_resume,
             auto_review=args.auto_review,
             review_mode=args.review_mode,
+            review_model=args.review_model,
             hallucination_retries=args.hallucination_retries,
             retrieval_config=args.retrieval_config,
             retrieval_config_kwargs=args.retrieval_config_kwargs,
@@ -803,6 +817,12 @@ def main():
         "--log-llm",
         action="store_true",
         help="Log LLM request/response for each review call",
+    )
+    review_parser.add_argument(
+        "--review-model",
+        type=str,
+        default=DEFAULT_LLM_EVAL_USER_SIMULATOR,
+        help=f"LLM model to use for review calls. Default is {DEFAULT_LLM_EVAL_USER_SIMULATOR}.",
     )
     review_parser.set_defaults(func=lambda args: run_review(args))
 
@@ -1031,6 +1051,7 @@ def run_review(args):
             limit=args.limit,
             task_ids=args.task_ids,
             log_llm=args.log_llm,
+            review_model=args.review_model,
         )
 
 
