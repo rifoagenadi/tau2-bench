@@ -240,6 +240,27 @@ def to_litellm_messages(messages: list[Message]) -> list[dict]:
     return litellm_messages
 
 
+def safe_json_loads(raw: Any) -> dict:
+    """
+    Parse model-produced tool arguments into a dict.
+    """
+    if raw is None or raw == "":
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Invalid tool call arguments JSON: {raw!r}") from exc
+    if parsed is None:
+        return {}
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            f"Tool call arguments must be a JSON object, got {type(parsed).__name__}"
+        )
+    return parsed
+
+
 def validate_message(message: Message) -> None:
     """
     Validate the message.
