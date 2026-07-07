@@ -45,7 +45,10 @@ class Role(str, Enum):
 
 
 DEFAULT_FIRST_AGENT_MESSAGE = AssistantMessage(
-    role="assistant", content="Hi! How can I help you today?", cost=0.0
+    role="assistant",
+    content="Hi! How can I help you today?",
+    reasoning_content="Scripted benchmark greeting.",
+    cost=0.0,
 )
 
 # Type variables for generic orchestrators
